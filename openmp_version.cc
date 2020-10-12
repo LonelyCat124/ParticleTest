@@ -196,7 +196,7 @@ int main(int argc, char **argv){
     init_cell(&cells[i], parts, padded_size);
   }
   free(parts);
-
+  printf("Cell 1 has %i members\n", cells[1].nparts);
   double start = omp_get_wtime();
 #pragma omp parallel default(none) shared(cells)
 {

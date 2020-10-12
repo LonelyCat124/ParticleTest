@@ -16,9 +16,10 @@ int main(int argc, char **argv){
       pos_x[pir] = x_pos;
       pos_y[pir] = y_pos;
       pos_z[pir] = z_pos;
+//      printf("x_pos, y_pos, z_pos %f %f %f\n", x_pos, y_pos, z_pos);
     }
     write_position(pos_x, pos_y, pos_z, 100000);
-    read_positions(pos_x, pos_y, pos_z);
+//    read_positions(pos_x, pos_y, pos_z);
 	free(pos_x);
 	free(pos_y);
 	free(pos_z);

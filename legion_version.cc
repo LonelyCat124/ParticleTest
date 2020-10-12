@@ -51,7 +51,8 @@ int64_t get_cell(double x_pos, double y_pos, double z_pos){
   int x_cell = floor(x_pos / CUTOFF);
   int y_cell = floor(y_pos / CUTOFF);
   int z_cell = floor(z_pos / CUTOFF);
-  return get_cell_1d(x_cell, y_cell, z_cell);
+  int64_t cell = get_cell_1d(x_cell, y_cell, z_cell);
+  return cell;
 }
 
 int64_t get_next_cell(){
@@ -226,7 +227,8 @@ void initialisation_task(const Task *task,
         acc_x[*pir] = 0.0;
         acc_y[*pir] = 0.0;
         acc_z[*pir] = 0.0;
-        cell[*pir] = get_cell(x_pos, y_pos, z_pos);
+        uint64_t cell_id = get_cell(x_pos, y_pos, z_pos);
+        cell[*pir] = cell_id;
         valid[*pir] = true;
       }else{
         cell[*pir] = get_next_cell();
