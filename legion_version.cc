@@ -101,14 +101,10 @@ void self_task(const Task *task,
       double p1_x = pos_x[*pir];
       double p1_y = pos_y[*pir];
       double p1_z = pos_z[*pir];
-      double fx = 0, fy = 0, fz = 0;
+      double fix = 0, fiy = 0, fiz = 0;
       for (Domain::DomainPointIterator pid = copy_and_move_one(pir); pid; pid++){
           if(!valid[*pid]){
               continue;
-          }
-          if(*pid == *pir){
-            printf("Same place\n");
-            continue;
           }
           double p2_x = pos_x[*pid];
           double p2_y = pos_y[*pid];
@@ -123,8 +119,30 @@ void self_task(const Task *task,
           if(r2 <= CUTOFF2){
             //Do some computation
 //            printf("Found a neighbour\n");
+          	double r = sqrtf(r2);
+          	double ir2 = 1.0 / r2;
+          	double sig_r = 0.1 / r;
+          	double sig_r2 = sig_r * sig_r;
+          	double sig_r4 = sig_r2 * sig_r2;
+          	double sig_r6 = sig_r4 * sig_r2;
+          	double sig_r12 = sig_r6 * sig_r6;
+          	double gamma = 24 * (2.0*sig_r12 - sig_r6) * ir2;
+
+          	double fx = gamma * dx;
+          	double fy = gamma * dy;
+          	double fz = gamma * dz;
+
+          	fix = fix + fx;
+          	fiy = fiy + fy;
+          	fiz = fiz + fz;
+          	acc_x[*pid] = acc_x[*pid] - fx;
+          	acc_y[*pid] = acc_y[*pid] - fy;
+          	acc_z[*pid] = acc_z[*pid] - fz;
           }
       }
+      acc_x[*pir] = acc_x[*pir] + fix;
+      acc_y[*pir] = acc_y[*pir] + fiy;
+      acc_z[*pir] = acc_z[*pir] + fiz;
     }
 }
 
@@ -287,11 +305,17 @@ void main_task(const Task *task,
     timestep_req.add_field(ACC_Z);
     timestep_req.add_field(_VALID);
     timestep_launcher.add_region_requirement(timestep_req);
-    runtime->execute_index_space(ctx, timestep_launcher);
 
     IndexLauncher self_task_launcher(SELF_TASK, cell_space, TaskArgument(NULL,0), arg_map);
     self_task_launcher.add_region_requirement(timestep_req);
+
+    Future start = runtime->get_current_time_in_microseconds(ctx);
+    runtime->issue_execution_fence(ctx);
+    runtime->execute_index_space(ctx, timestep_launcher);
     runtime->execute_index_space(ctx, self_task_launcher);
+    runtime->issue_execution_fence(ctx);
+    Future end = runtime->get_current_time_in_microseconds(ctx);
+    printf("Runtime for timestep and self was %fs\n", (double)(end.get_result<long long>()-start.get_result<long long>()) / 1000000.0); 
 
     //Cleanup
     runtime->destroy_logical_region(ctx, particle_array);

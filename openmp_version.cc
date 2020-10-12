@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <omp.h>
 
 #define N_PARTS 100000
 //We're going to use a cutoff of 0.1 and dimensions of 1x1x1 for easyness
@@ -98,6 +99,7 @@ void self_task(struct cell* cell){
     double p1_x = cell->parts[i].pos_x;
     double p1_y = cell->parts[i].pos_y;
     double p1_z = cell->parts[i].pos_z;
+    double fix = 0., fiy = 0., fiz = 0.;
     for(int j = i+1; j < cell->nparts; j++){
         if(!cell->parts[j]._valid){
             continue;
@@ -114,9 +116,31 @@ void self_task(struct cell* cell){
         //If within cutoff
         if(r2 <= CUTOFF2){
           //Do some computation
+          double r = sqrtf(r2);
+          double ir2 = 1.0 / r2;
+          double sig_r = 0.1 / r;
+          double sig_r2 = sig_r * sig_r;
+          double sig_r4 = sig_r2 * sig_r2;
+          double sig_r6 = sig_r4 * sig_r2;
+          double sig_r12 = sig_r6 * sig_r6;
+          double gamma = 24 * (2.0*sig_r12 - sig_r6) * ir2;
+
+          double fx = gamma * dx;
+          double fy = gamma * dy;
+          double fz = gamma * dz;
+
+          fix = fix + fx;
+          fiy = fiy + fy;
+          fiz = fiz + fz;
+          cell->parts[j].acc_x -= fx;
+          cell->parts[j].acc_y -= fy;
+          cell->parts[j].acc_z -= fz;
 //          printf("Found a neighbour\n");
         }
     }
+    cell->parts[i].acc_x += fix;
+    cell->parts[i].acc_y += fiy;
+    cell->parts[i].acc_z += fiz;
   }
 }
 
@@ -171,16 +195,31 @@ int main(int argc, char **argv){
     cells[i].id = i;
     init_cell(&cells[i], parts, padded_size);
   }
+  free(parts);
 
-  for(int i = 0; i < 1000; i++){
-    timestep_task(&cells[i]);
+  double start = omp_get_wtime();
+#pragma omp parallel default(none) shared(cells)
+{
+  #pragma omp master
+  {
+    for(int i = 0; i < 1000; i++){
+      #pragma omp task firstprivate(i) depend(inout: cells[i])
+      {
+          timestep_task(&cells[i]);
+      }
+    }
+
+    for(int i = 0; i < 1000; i++){
+      #pragma omp task firstprivate(i) depend(inout: cells[i])
+      {
+          self_task(&cells[i]);
+      }
+    }
   }
+}
+  double end = omp_get_wtime();
 
-  for(int i = 0; i < 1000; i++){
-    self_task(&cells[i]);
-  }
-
-
+  printf("Omp version timestep and self in %fs\n", end-start);
 
   //Cleanup
   for(int i =0; i < 1000; i++){
