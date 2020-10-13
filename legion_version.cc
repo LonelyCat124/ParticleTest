@@ -59,7 +59,7 @@ int64_t get_next_cell(){
     static int64_t cell = 0;
     static int count = 0;
     if(count == TRADEQUEUE_SIZE){
-        count = 0;
+        count = 1;
         cell = cell + 1;
     }else{
         count++;
@@ -93,7 +93,8 @@ void self_task(const Task *task,
     const FieldAccessor<READ_WRITE, double, 1> acc_x(regions[0], fid[6]);
     const FieldAccessor<READ_WRITE, double, 1> acc_y(regions[0], fid[7]);
     const FieldAccessor<READ_WRITE, double, 1> acc_z(regions[0], fid[8]);
-    const FieldAccessor<READ_WRITE, bool, 1> valid(regions[0], fid[9]);
+    const FieldAccessor<WRITE_DISCARD, int64_t, 1> cell(regions[0], fid[9]);
+    const FieldAccessor<READ_WRITE, bool, 1> valid(regions[0], fid[10]);
     Domain dom = runtime->get_index_space_domain(ctx, task->regions[0].region.get_index_space());
     for (Domain::DomainPointIterator pir(dom); pir; pir++){
       if(!valid[*pir]){
@@ -168,7 +169,8 @@ void simple_timestepping_task(const Task *task,
     const FieldAccessor<READ_WRITE, double, 1> acc_x(regions[0], fid[6]);
     const FieldAccessor<READ_WRITE, double, 1> acc_y(regions[0], fid[7]);
     const FieldAccessor<READ_WRITE, double, 1> acc_z(regions[0], fid[8]);
-    const FieldAccessor<READ_WRITE, bool, 1> valid(regions[0], fid[9]);
+    const FieldAccessor<WRITE_DISCARD, int64_t, 1> cell(regions[0], fid[9]);
+    const FieldAccessor<READ_WRITE, bool, 1> valid(regions[0], fid[10]);
     Domain dom = runtime->get_index_space_domain(ctx, task->regions[0].region.get_index_space());
     for(Domain::DomainPointIterator pir(dom); pir; pir++){
         if(valid[*pir]){
@@ -231,8 +233,10 @@ void initialisation_task(const Task *task,
         cell[*pir] = cell_id;
         valid[*pir] = true;
       }else{
-        cell[*pir] = get_next_cell();
+        uint64_t cell_id = get_next_cell();
+        cell[*pir] = cell_id;
         valid[*pir] = false;
+        count++;
       }
     }
     free(x_positions);
@@ -305,6 +309,7 @@ void main_task(const Task *task,
     timestep_req.add_field(ACC_X);
     timestep_req.add_field(ACC_Y);
     timestep_req.add_field(ACC_Z);
+    timestep_req.add_field(CELL);
     timestep_req.add_field(_VALID);
     timestep_launcher.add_region_requirement(timestep_req);
 

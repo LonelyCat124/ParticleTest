@@ -37,7 +37,7 @@ endif
 
 # You can modify these variables, some will be appended to by the runtime makefile
 INC_FLAGS	?=
-CC_FLAGS	?= -lhdf5
+CC_FLAGS	?= -lhdf5 -O3
 NVCC_FLAGS	?=
 GASNET_FLAGS	?=
 LD_FLAGS	?= -lhdf5

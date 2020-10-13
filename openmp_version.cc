@@ -61,7 +61,7 @@ int64_t get_next_cell(){
     static int64_t cell = 0;
     static int count = 0;
     if(count == TRADEQUEUE_SIZE){
-        count = 0;
+        count = 1;
         cell = cell + 1;
     }else{
         count++;
@@ -74,7 +74,7 @@ void delete_cell(struct cell* cell){
 }
 
 void init_cell(struct cell* cell, struct part* parts, int size_parts){
-  int count = TRADEQUEUE_SIZE;
+  int count = 0; //TRADEQUEUE_SIZE;
   for(int i = 0; i < size_parts; i++){
     if(parts[i].cell_id == cell->id){
       count++;
@@ -196,7 +196,11 @@ int main(int argc, char **argv){
     init_cell(&cells[i], parts, padded_size);
   }
   free(parts);
-  printf("Cell 1 has %i members\n", cells[1].nparts);
+  int counter = 0;
+  for(int i = 0; i < cells[999].nparts; i++){
+    if(cells[999].parts[i]._valid) counter++;
+  }
+  printf("parts in cell 999, nparts %i, counter %i\n", cells[999].nparts, counter);
   double start = omp_get_wtime();
 #pragma omp parallel default(none) shared(cells)
 {
@@ -209,12 +213,12 @@ int main(int argc, char **argv){
       }
     }
 
-    for(int i = 0; i < 1000; i++){
-      #pragma omp task firstprivate(i) depend(inout: cells[i])
-      {
-          self_task(&cells[i]);
-      }
-    }
+//    for(int i = 0; i < 1000; i++){
+//      #pragma omp task firstprivate(i) depend(inout: cells[i])
+//      {
+//          self_task(&cells[i]);
+//      }
+//    }
   }
 }
   double end = omp_get_wtime();
