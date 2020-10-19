@@ -297,9 +297,11 @@ void main_task(const Task *task,
     LogicalPartition cell_partition = runtime->get_logical_partition(ctx, particle_array, ip);
     runtime->attach_name(cell_partition, "cell_partition");
 
+
+
     ArgumentMap arg_map;
     IndexLauncher timestep_launcher(TIMESTEP_TASK, cell_space, TaskArgument(NULL,0), arg_map);
-    RegionRequirement timestep_req(cell_partition, 0, READ_WRITE, EXCLUSIVE, particle_array);
+    RegionRequirement timestep_req(cell_partition, 0, READ_WRITE, ATOMIC, particle_array);
     timestep_req.add_field(POS_X);
     timestep_req.add_field(POS_Y);
     timestep_req.add_field(POS_Z);
@@ -316,11 +318,17 @@ void main_task(const Task *task,
     IndexLauncher self_task_launcher(SELF_TASK, cell_space, TaskArgument(NULL,0), arg_map);
     self_task_launcher.add_region_requirement(timestep_req);
 
-    Future start = runtime->get_current_time_in_microseconds(ctx);
-    runtime->issue_execution_fence(ctx);
+
     runtime->execute_index_space(ctx, timestep_launcher);
     runtime->execute_index_space(ctx, self_task_launcher);
     runtime->issue_execution_fence(ctx);
+    Future start = runtime->get_current_time_in_microseconds(ctx);
+    runtime->issue_execution_fence(ctx);
+    for(int i = 0; i < 10; i++){
+    runtime->execute_index_space(ctx, timestep_launcher);
+    runtime->execute_index_space(ctx, self_task_launcher);
+    runtime->issue_execution_fence(ctx);
+    }
     Future end = runtime->get_current_time_in_microseconds(ctx);
     printf("Runtime for timestep and self was %fs\n", (double)(end.get_result<long long>()-start.get_result<long long>()) / 1000000.0); 
 

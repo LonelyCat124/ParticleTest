@@ -191,34 +191,31 @@ int main(int argc, char **argv){
   struct part* parts = (struct part*) malloc(sizeof(struct part) * padded_size);
   struct cell* cells = (struct cell*) malloc(sizeof(struct cell) * 1000);
   init_parts(parts, padded_size);
+  double start = omp_get_wtime();
   for(int i = 0; i < 1000; i++){
     cells[i].id = i;
     init_cell(&cells[i], parts, padded_size);
   }
   free(parts);
-  int counter = 0;
-  for(int i = 0; i < cells[999].nparts; i++){
-    if(cells[999].parts[i]._valid) counter++;
-  }
-  printf("parts in cell 999, nparts %i, counter %i\n", cells[999].nparts, counter);
-  double start = omp_get_wtime();
 #pragma omp parallel default(none) shared(cells)
 {
   #pragma omp master
   {
-    for(int i = 0; i < 1000; i++){
-      #pragma omp task firstprivate(i) depend(inout: cells[i])
-      {
-          timestep_task(&cells[i]);
+    for(int k = 0; k < 10; k++){
+      for(int i = 0; i < 1000; i++){
+        #pragma omp task firstprivate(i) depend(inout: cells[i])
+        {
+            timestep_task(&cells[i]);
+        }
+      }
+
+      for(int i = 0; i < 1000; i++){
+        #pragma omp task firstprivate(i) depend(inout: cells[i])
+        {
+            self_task(&cells[i]);
+        }
       }
     }
-
-//    for(int i = 0; i < 1000; i++){
-//      #pragma omp task firstprivate(i) depend(inout: cells[i])
-//      {
-//          self_task(&cells[i]);
-//      }
-//    }
   }
 }
   double end = omp_get_wtime();
